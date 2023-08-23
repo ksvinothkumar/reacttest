@@ -1,0 +1,419 @@
+import React, { useState, useEffect } from 'react';
+import { Grid, Checkbox,Button, FormControl, InputLabel, MenuItem, Select, ListItemText } from '@mui/material';
+
+
+import { getWeek, startOfMonth, endOfMonth, eachWeekOfInterval } from 'date-fns';
+
+
+function App() {
+    const quarterMonths = {
+        'Q1': ['January', 'February', 'March'],
+        'Q2': ['April', 'May', 'June'],
+        'Q3': ['July', 'August', 'September'],
+        'Q4': ['October', 'November', 'December']
+      };
+  const [selectedYears, setSelectedYears] = useState([]);
+  const [selectedQuarters, setSelectedQuarters] = useState([]);
+  const [selectedWeeks, setSelectedWeeks] = useState([]);
+
+  const [apiData2, setApiData2] = useState([]);
+const [selectedApiData2, setSelectedApiData2] = useState([]);
+
+const [apiData3, setApiData3] = useState([]);
+const [selectedApiData3, setSelectedApiData3] = useState([]);
+
+useEffect(() => {
+    // Fetching data from the first additional API
+    fetch('YOUR_API_ENDPOINT_2')
+      .then(response => response.json())
+      .then(data => {
+        setApiData2(data);
+      })
+      .catch(error => {
+        console.error('Error fetching data from API 2:', error);
+      });
+  
+    // Fetching data from the second additional API
+    fetch('YOUR_API_ENDPOINT_3')
+      .then(response => response.json())
+      .then(data => {
+        setApiData3(data);
+      })
+      .catch(error => {
+        console.error('Error fetching data from API 3:', error);
+      });
+  }, []);
+  
+
+  const years = Array.from({ length: new Date().getFullYear() - 2020 }, (_, i) => 2021 + i);
+
+  const quartersBasedOnYears = selectedYears.flatMap(year => ['Q1', 'Q2', 'Q3', 'Q4'].map(q => `${year}-${q}`));
+  const allQuartersSelected = selectedQuarters.length === quartersBasedOnYears.length;
+
+  const handleYearsChange = (event) => {
+    const value = event.target.value;
+    const deselectedYears = selectedYears.filter(year => !value.includes(year));
+    
+    if (value.includes('All')) {
+      if (selectedYears.length === years.length) {
+        setSelectedYears([]);
+        setSelectedQuarters([]);  // Clear quarters when all years are deselected
+        setSelectedWeeks([]);    // Clear weeks when all years are deselected
+      } else {
+        setSelectedYears(years);
+      }
+    } else {
+      setSelectedYears(value);
+  
+      // Remove quarters of deselected years
+      deselectedYears.forEach(year => {
+        setSelectedQuarters(prevQuarters => prevQuarters.filter(q => !q.startsWith(`${year}-`)));
+  
+        // Remove weeks corresponding to the deselected year
+        setSelectedWeeks(prevWeeks => prevWeeks.filter(week => !week.startsWith(`${year}:`)));
+
+        
+      });
+    }
+  };
+  
+  
+
+  const handleQuartersChange = (event) => {
+    const value = event.target.value;
+    const deselectedQuarters = selectedQuarters.filter(quarter => !value.includes(quarter));
+    
+    if (value.includes('All')) {
+      if (allQuartersSelected) {
+        setSelectedQuarters([]);
+        setSelectedMonths([]);   // Clear months when all quarters are deselected
+        setSelectedWeeks([]);   // Clear weeks when all quarters are deselected
+      } else {
+        setSelectedQuarters(allQuartersFromSelectedYears);
+      }
+    } else {
+      setSelectedQuarters(value);
+  
+      // Remove months and weeks of deselected quarters
+      deselectedQuarters.forEach(quarter => {
+        setSelectedMonths(prevMonths => prevMonths.filter(month => !month.startsWith(`${quarter}:`)));
+        setSelectedWeeks(prevWeeks => prevWeeks.filter(week => !week.startsWith(`${quarter}:`)));
+      });
+    }
+  };
+  
+
+  const [selectedMonths, setSelectedMonths] = useState([]);
+  const allMonthsFromSelectedQuarters = [...new Set(selectedQuarters.flatMap(quarter => {
+    const [year, q] = quarter.split('-');
+    return quarterMonths[q].map(month => `${year}:${q}:${month}`);
+  }))];
+
+const allMonthsSelected = selectedMonths.length === allMonthsFromSelectedQuarters.length;
+const allQuartersFromSelectedYears = selectedYears.flatMap(year => {
+    return ['Q1', 'Q2', 'Q3', 'Q4'].map(quarter => `${year}-${quarter}`);
+  });
+  
+
+const handleMonthsChange = (event) => {
+    const value = event.target.value;
+    const deselectedMonths = selectedMonths.filter(month => !value.includes(month));
+    
+    if (value.includes('All')) {
+      if (allMonthsSelected) {
+        setSelectedMonths([]);
+        setSelectedWeeks([]);   // Clear weeks when all months are deselected
+      } else {
+        setSelectedMonths(allMonthsFromSelectedQuarters);
+      }
+    } else {
+      setSelectedMonths(value);
+  
+      // Remove weeks of deselected months
+      deselectedMonths.forEach(month => {
+        setSelectedWeeks(prevWeeks => prevWeeks.filter(week => !week.startsWith(`${month}:`)));
+      });
+    }
+  };
+  
+
+const getWeeksOfMonth = (year, month) => {
+    const startDate = startOfMonth(new Date(year, month - 1));
+    const endDate = endOfMonth(new Date(year, month - 1));
+    return eachWeekOfInterval({ start: startDate, end: endDate }).map(date => getWeek(date));
+  };
+  
+  const allWeeksFromSelectedMonths = [...new Set(selectedMonths.flatMap(monthStr => {
+    const [year, q, monthName] = monthStr.split(':');
+    const monthIndex = quarterMonths[q].indexOf(monthName) + 1 + (q.slice(1) - 1) * 3;
+    return getWeeksOfMonth(year, monthIndex).map(week => `${year}:${q}:${monthName}:${week}`);
+  }))];
+  
+  const allWeeksSelected = selectedWeeks.length === allWeeksFromSelectedMonths.length;
+  
+  const handleWeeksChange = (event) => {
+    const value = event.target.value;
+    if (value.includes('All')) {
+      if (allWeeksSelected) {
+        setSelectedWeeks([]);
+      } else {
+        setSelectedWeeks(allWeeksFromSelectedMonths);
+      }
+    } else {
+      setSelectedWeeks(value);
+    }
+  };
+
+
+  const handleApply = () => {
+    const selectedData = {
+      years: selectedYears.filter(year => year !== 'All'),
+      quarters: selectedQuarters.filter(quarter => quarter !== 'All'),
+      months: selectedMonths.filter(month => month !== 'All'),
+      weeks: selectedWeeks.filter(week => week !== 'All')
+    };
+  
+    console.log(selectedData); // This logs the consolidated selected values. You can replace this with any desired action.
+  
+    // If you want to show the selected data in an alert or some UI element:
+    alert(JSON.stringify(selectedData, null, 2));
+  };
+  const handleApiData2Change = (event) => {
+    const value = event.target.value;
+  
+    if (value.includes('All')) {
+      if (selectedApiData2.length === apiData2.length) {
+        setSelectedApiData2([]);
+      } else {
+        setSelectedApiData2(apiData2);
+      }
+    } else {
+      setSelectedApiData2(value);
+    }
+  };
+  const handleApiData3Change = (event) => {
+    const value = event.target.value;
+  
+    if (value.includes('All')) {
+      if (selectedApiData3.length === apiData3.length) {
+        setSelectedApiData3([]);
+      } else {
+        setSelectedApiData3(apiData3);
+      }
+    } else {
+      setSelectedApiData3(value);
+    }
+  };
+  
+  
+  return (
+    <div style={{ padding: '40px' }}>
+        <Grid container spacing={3}>
+  
+  {/* First Row - Years and Quarters */}
+  <Grid item xs={12} sm={6}>
+  <FormControl>
+  <InputLabel>API Data 2</InputLabel>
+  <Select
+    multiple
+    value={selectedApiData2}
+    onChange={handleApiData2Change}
+    renderValue={(selected) => selected.includes('All') ? 'All' : selected.join(', ')}
+  >
+    <MenuItem value="All">
+      <Checkbox checked={selectedApiData2.includes('All')} />
+      <ListItemText primary="All" />
+    </MenuItem>
+    {apiData2.map(item => (
+      <MenuItem key={item} value={item}>
+        <Checkbox checked={selectedApiData2.includes(item)} />
+        <ListItemText primary={item} />
+      </MenuItem>
+    ))}
+  </Select>
+</FormControl>
+
+  </Grid>
+  <Grid item xs={12} sm={6}>
+  <FormControl>
+  <InputLabel>API Data 3</InputLabel>
+  <Select
+    multiple
+    value={selectedApiData3}
+    onChange={handleApiData3Change}
+    renderValue={(selected) => selected.includes('All') ? 'All' : selected.join(', ')}
+  >
+    <MenuItem value="All">
+      <Checkbox checked={selectedApiData3.includes('All')} />
+      <ListItemText primary="All" />
+    </MenuItem>
+    {apiData3.map(item => (
+      <MenuItem key={item} value={item}>
+        <Checkbox checked={selectedApiData3.includes(item)} />
+        <ListItemText primary={item} />
+      </MenuItem>
+    ))}
+  </Select>
+</FormControl>
+
+  </Grid>
+
+  {/* Second Row - Months and Weeks */}
+  <Grid item xs={12} sm={6}>
+  <FormControl fullWidth variant="outlined" style={{ marginBottom: '20px' }}>
+        <InputLabel>Years</InputLabel>
+        <Select
+          multiple
+          value={selectedYears}
+          onChange={handleYearsChange}
+          renderValue={(selected) => selected.filter(v => v !== 'All').join(', ')}
+        >
+          <MenuItem value="All">
+            <Checkbox checked={selectedYears.length === years.length} />
+            <ListItemText primary="Select All" />
+          </MenuItem>
+          {years.map((year) => (
+            <MenuItem key={year} value={year}>
+              <Checkbox checked={selectedYears.includes(year)} />
+              <ListItemText primary={year} />
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+  </Grid>
+  <Grid item xs={12} sm={6}>
+  <FormControl fullWidth variant="outlined">
+        <InputLabel>Quarters</InputLabel>
+        <Select
+          multiple
+          value={selectedQuarters}
+          onChange={handleQuartersChange}
+          renderValue={(selected) => {
+            if (selected.includes('All')) {
+              return 'All';
+            } else if (selected.length <= 4) {
+              return selected.join(', ');
+            } else {
+              const displayed = selected.slice(0, 4);
+              return `${displayed.join(', ')} ++`;
+            }
+          }}
+          disabled={selectedYears.length === 0}
+        >
+          {quartersBasedOnYears.length > 0 && (
+            <MenuItem value="All">
+              <Checkbox checked={allQuartersSelected} indeterminate={selectedQuarters.length > 0 && !allQuartersSelected} />
+              <ListItemText primary="Select All" />
+            </MenuItem>
+          )}
+          {quartersBasedOnYears.map((quarter) => (
+            <MenuItem key={quarter} value={quarter}>
+              <Checkbox checked={selectedQuarters.includes(quarter)} />
+              <ListItemText primary={quarter} />
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+  </Grid>
+  {/* Thrid Row - Months and Weeks */}
+  <Grid item xs={12} sm={6}>
+  <FormControl fullWidth variant="outlined" style={{ marginTop: '20px' }}>
+  <InputLabel>Months</InputLabel>
+  <Select
+    multiple
+    value={selectedMonths}
+    onChange={handleMonthsChange}
+    renderValue={(selected) => {
+        if (selected.includes('All')) {
+          return 'All';
+        } else if (selected.length <= 4) {
+          return selected.join(', ');
+        } else {
+          const displayed = selected.slice(0, 4);
+          return `${displayed.join(', ')} ++`;
+        }
+      }}
+    disabled={selectedQuarters.length === 0}
+  >
+    {allMonthsFromSelectedQuarters.length > 0 && (
+      <MenuItem value="All">
+        <Checkbox checked={allMonthsSelected} indeterminate={selectedMonths.length > 0 && !allMonthsSelected} />
+        <ListItemText primary="Select All" />
+      </MenuItem>
+    )}
+    {allMonthsFromSelectedQuarters.map((month) => (
+      <MenuItem key={month} value={month}>
+        <Checkbox checked={selectedMonths.includes(month)} />
+        <ListItemText primary={month} />
+      </MenuItem>
+    ))}
+    
+  </Select>
+</FormControl>
+  </Grid>
+  <Grid item xs={12} sm={6}>
+  <FormControl fullWidth variant="outlined" style={{ marginTop: '20px' }}>
+  <InputLabel>Weeks</InputLabel>
+  <Select
+    multiple
+    value={selectedWeeks}
+    onChange={handleWeeksChange}
+    renderValue={(selected) => {
+        if (selected.includes('All')) {
+          return 'All';
+        } else if (selected.length <= 4) {
+          return selected.join(', ');
+        } else {
+          const displayed = selected.slice(0, 4);
+          return `${displayed.join(', ')} ++`;
+        }
+      }}
+    disabled={selectedMonths.length === 0}
+  >
+    {allWeeksFromSelectedMonths.length > 0 && (
+      <MenuItem value="All">
+        <Checkbox checked={allWeeksSelected} indeterminate={selectedWeeks.length > 0 && !allWeeksSelected} />
+        <ListItemText primary="Select All" />
+      </MenuItem>
+    )}
+    {allWeeksFromSelectedMonths.map((week) => (
+      <MenuItem key={week} value={week}>
+        <Checkbox checked={selectedWeeks.includes(week)} />
+        <ListItemText primary={week} />
+      </MenuItem>
+    ))}
+  </Select>
+</FormControl>
+  </Grid>
+  {/* Forth Row - Months and Weeks */}
+  <Grid item xs={12} sm={6}>
+    <FormControl>
+      {/* ... your Months dropdown logic here ... */}
+    </FormControl>
+  </Grid>
+  <Grid item xs={12} sm={6}>
+    <FormControl>
+      {/* ... your Weeks dropdown logic here ... */}
+    </FormControl>
+  </Grid>
+
+  {/* Button, if you have one */}
+  <Grid item xs={12}>
+    <Button variant="contained" color="primary" onClick={handleApply}>
+      Apply
+    </Button>
+  </Grid>
+</Grid>
+
+   
+
+     
+    
+
+
+
+    </div>
+  );
+}
+
+export default App;
